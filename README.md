@@ -1,80 +1,112 @@
-# Cyber Operations Platform - INVISI
+# Thorn-Apple: Advanced Secure Payload Generator
 
-![App Screenshot](screenshot.png)
+Thorn-Apple is a professional-grade payload generation framework designed for security professionals, penetration testers, and red team operators. This sophisticated tool combines military-grade encryption with polymorphic code generation to create evasive payloads that bypass modern security controls.
 
-> **Warning**  
-> **Legal & Ethical Notice**  
-> This software is designed for authorized penetration testing, security research, and educational purposes only. Unauthorized use against systems without explicit permission is illegal. Developers assume no liability for misuse.
+**Key Features:**
+Military-Grade Encryption: AES-256-GCM and ChaCha20-Poly1305 authenticated encryption
 
-## Overview
-Professional-grade payload generation suite featuring:
-- Military-grade encrypted reverse shells
-- Polymorphic engine (unique payloads per generation)
-- Advanced evasion techniques (anti-VM, anti-debugging)
-- Modular surveillance capabilities
-- Stealth persistence mechanisms
-- Cross-format payload generation (EXE/DLL/PowerShell)
+Polymorphic Engine: Unique shellcode generation with junk code insertion
 
-## Key Features
-### 🛡️ Core Capabilities
-- **AES-256/ChaCha20 Encrypted Communications**
-- **Windows 11-Specific Evasion Techniques**
-- **Dynamic Polymorphic Engine**
-- **Process Hollowing/Injection**
-- **Automatic Persistence Mechanisms**
+Cross-Platform Support: Windows, macOS, and Linux payload generation
 
-### 📡 Surveillance Modules
-- Microphone capture (MP3/WAV)
-- Webcam streaming (H.264)
-- Keylogging with screenshot correlation
-- File system reconnaissance
-- Credential harvesting
+Advanced Modules: Persistence, surveillance, and data operation capabilities
 
-### ⚙️ Technical Specifications
-| Component              | Technology                     |
-|------------------------|--------------------------------|
-| Cryptography           | AES-256-CBC, ChaCha20-Poly1305 |
-| Payload Formats        | EXE, DLL, PowerShell, Service  |
-| Anti-Analysis          | RDTSC timing checks, SIDT VM detection |
-| Persistence            | Registry, Scheduled Tasks, WMI |
-| Process Injection      | APC Queue, Thread Hijacking    |
+**Multiple Output Formats:**
 
-## Installation
-```bash
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-.\.venv\Scripts\activate  # Windows
+Standalone executables (PE format)
 
-# Install dependencies
-pip install -r requirements.txt
-Usage
-bash
-python invisi.py
-Configure connection parameters (LHOST/LPORT)
+Python loader scripts
 
-Select encryption scheme and architecture
+Raw shellcode binaries
 
-Enable desired modules in Advanced tab
+**Evasion Techniques:**
+
+Randomized sleep timers
+
+Anti-analysis measures
+
+Architecture-specific polymorphism
+
+Installation
+Prerequisites
+Python 3.8+
+
+Supported platforms: Windows, Linux, macOS
+
+**Installation Steps**
+
+## Clone the repository
+bash```
+git clone https://github.com/your-username/thorn-apple.git
+cd thorn-apple```
+
+## Install dependencies
+bash```
+pip install -r requirements.txt```
+
+## Run the application
+bash```
+python thorn-apple.py```
+
+## Usage
+Basic Operation
+Configure connection settings (LHOST/LPORT)
+
+Select encryption algorithm and target architecture
+
+Choose payload format (EXE, Python Loader, or Shellcode)
+
+Enable advanced modules as needed
 
 Generate and save payload
 
-Payload Generation Workflow
-Diagram
-Code
+Command Line Options
+bash```
+python thorn-apple.py [options]```
 
-**Contributing**
-Fork repository
+Options:
+  --lhost LHOST       Listener IP address
+  --lport LPORT       Listener port
+  --format FORMAT     Output format (exe, py, bin)
+  --encryption ENC    Encryption method (aes, chacha)
+  --output FILE       Output file name
+  --sleep SECONDS     Pre-execution sleep time
+  
+## Advanced Modules
+**Persistence Mechanisms**
 
-Create feature branch (git checkout -b feature/improvement)
+Registry Run Key (Windows)
 
-Commit changes (git commit -am 'Add new evasion technique')
+Startup Folder
 
-Push branch (git push origin feature/improvement)
+Scheduled Task/Cron Job
 
-Open pull request
+System Service/Daemon
 
-License
-This project is licensed under the Ethical Security Research License (ESRL-1.0) - View Full License
+**Surveillance Capabilities**
 
-Disclaimer: All security testing requires written authorization from system owners. This tool should only be used on systems where explicit permission has been granted.
+Microphone Capture
+
+Webcam Capture
+
+Keylogger
+
+Screen Capture
+
+**Data Operations**
+
+File Exfiltration
+
+Drive Content Search
+
+Process Injection
+
+Credential Harvesting
+
+## Disclaimer
+Thorn-Apple is designed for authorized security testing and educational purposes only. The developers assume no liability and are not responsible for any misuse or damage caused by this software. Always obtain proper authorization before testing systems you do not own.
+
+## License
+Thorn-Apple is released under the GNU General Public License v3.0. See LICENSE for full details.
+
+# Thorn-Apple: Where cutting-edge cryptography meets offensive security operations.
