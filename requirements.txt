@@ -1,0 +1,5 @@
+PyQt5==5.15.9
+pycryptodomex==3.20.0
+pyinstaller==6.2.0
+requests==2.31.0
+pywin32==306
