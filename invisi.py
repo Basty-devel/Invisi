@@ -15,7 +15,7 @@ from Crypto.Util.Padding import pad
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import HMAC, SHA256
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox,
     QLineEdit, QComboBox, QPushButton, QTextEdit, QGroupBox, QTabWidget
 )
 from PyQt5.QtCore import Qt
