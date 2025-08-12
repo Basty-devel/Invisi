@@ -1,112 +1,126 @@
-# Thorn-Apple: Advanced Secure Payload Generator
+# Thorn-Apple: Advanced Payload Generator
 
-Thorn-Apple is a professional-grade payload generation framework designed for security professionals, penetration testers, and red team operators. This sophisticated tool combines military-grade encryption with polymorphic code generation to create evasive payloads that bypass modern security controls.
+![Thorn-Apple Logo](thorn_apple.png)
 
-**Key Features:**
-Military-Grade Encryption: AES-256-GCM and ChaCha20-Poly1305 authenticated encryption
+Thorn-Apple is a military-grade encrypted payload generator with advanced evasion capabilities, designed for penetration testers and red team operators. It creates polymorphic reverse shells with multiple evasion techniques and modular payload capabilities.
 
-Polymorphic Engine: Unique shellcode generation with junk code insertion
+## Key Features
 
-Cross-Platform Support: Windows, macOS, and Linux payload generation
+- **Encrypted Payloads**: AES-256-GCM and ChaCha20-Poly1305 encryption
+- **Cross-Platform**: Generate payloads for Windows, Linux, and macOS
+- **Polymorphic Code**: Unique shellcode per generation
+- **Advanced Evasion**:
+  - SSL/TLS tunneling
+  - Domain fronting
+  - Anti-debug techniques
+  - Randomized sleep patterns
+- **Modular Payload System**:
+  - File dropper
+  - Cryptocurrency miner
+  - Ransomware module
+  - Multiple persistence mechanisms
+- **Integrated Listener**: Built-in reverse shell handler with SSL support
 
-Advanced Modules: Persistence, surveillance, and data operation capabilities
+## Installation
 
-**Multiple Output Formats:**
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourrepo/thorn-apple.git
+   cd thorn-apple
+Install dependencies:
 
-Standalone executables (PE format)
+bash
+pip install -r requirements.txt
+Run the application:
 
-Python loader scripts
-
-Raw shellcode binaries
-
-**Evasion Techniques:**
-
-Randomized sleep timers
-
-Anti-analysis measures
-
-Architecture-specific polymorphism
-
-Installation
-Prerequisites
-Python 3.8+
-
-Supported platforms: Windows, Linux, macOS
-
-**Installation Steps**
-
-## Clone the repository
-bash```
-git clone https://github.com/your-username/thorn-apple.git
-cd thorn-apple```
-
-## Install dependencies
-bash```
-pip install -r requirements.txt```
-
-## Run the application
-bash```
-python thorn-apple.py```
-
-## Usage
-Basic Operation
+bash
+python thorn-apple.py
+Usage Guide
+Basic Payload Generation
 Configure connection settings (LHOST/LPORT)
 
-Select encryption algorithm and target architecture
+Select architecture (x86/x64) and target OS
 
-Choose payload format (EXE, Python Loader, or Shellcode)
+Choose payload format (Python Loader/EXE/Shellcode)
 
-Enable advanced modules as needed
+Configure encryption method
 
-Generate and save payload
+Enable evasion techniques as needed
 
-Command Line Options
+Click "Generate Advanced Payload"
+
+Advanced Modules
+File Dropper: Embed and execute additional binaries
+
+Domain Fronting: Evade network restrictions using CDN domains
+
+Cryptominer: Monero CPU miner with stealth options
+
+Ransomware: File encryption module with exclusion lists
+
+Listener Controls
+Set listener port (default: 4444)
+
+Enable SSL/TLS for encrypted communications
+
+Start listener and wait for connections
+
+Execute commands through the integrated terminal
+
+Configuration Options
+Section	Options
+Connection	LHOST, LPORT, SSL/TLS, Sleep Time
+Payload Settings	Architecture, Platform, Format, Encryption Method
+Advanced Evasion	Code Obfuscation, Anti-Debug, Sandbox Evasion
+Persistence	Registry, Startup Folder, Scheduled Tasks, System Services
+File Dropper	File selection, Target filename, Execution options
+Domain Fronting	Front domain, Real domain
+Cryptominer	Mining pool, Wallet address, CPU usage, Stealth options
+Ransomware	Ransom note, Target extensions, Folder exclusions
+Build Standalone Executables
+To compile payloads to EXE format:
+
 bash```
-python thorn-apple.py [options]```
+pyinstaller --onefile --noconsole payload.py```
 
-Options:
-  --lhost LHOST       Listener IP address
-  --lport LPORT       Listener port
-  --format FORMAT     Output format (exe, py, bin)
-  --encryption ENC    Encryption method (aes, chacha)
-  --output FILE       Output file name
-  --sleep SECONDS     Pre-execution sleep time
-  
-## Advanced Modules
-**Persistence Mechanisms**
+## Security Considerations
 
-Registry Run Key (Windows)
+## Use only on authorized systems with proper permissions
 
-Startup Folder
+## SSL certificates are self-signed for demonstration purposes
 
-Scheduled Task/Cron Job
+## Ransomware module is for research purposes only
 
-System Service/Daemon
+## Disable real attack modules during testing
 
-**Surveillance Capabilities**
-
-Microphone Capture
-
-Webcam Capture
-
-Keylogger
-
-Screen Capture
-
-**Data Operations**
-
-File Exfiltration
-
-Drive Content Search
-
-Process Injection
-
-Credential Harvesting
+Screenshot
+https://screenshot.png
 
 ## Disclaimer
-Thorn-Apple is designed for authorized security testing and educational purposes only. The developers assume no liability and are not responsible for any misuse or damage caused by this software. Always obtain proper authorization before testing systems you do not own.
+This tool is for educational and authorized penetration testing purposes only. The developers assume no liability for misuse of this software.
 
 ## License
-Thorn-Apple is released under the GNU General Public License v3.0. See LICENSE for full details.
+Thorn-Apple is released under the Security Testing License - use only for legitimate security assessment activities.
 
-# Thorn-Apple: Where cutting-edge cryptography meets offensive security operations.
+### Implementation Notes
+
+1. **Dependencies**:
+   - PyCryptodome for military-grade encryption
+   - PyQt5 for the professional GUI interface
+   - pefile for future EXE manipulation features
+   - (Optional) PyInstaller for compiling payloads
+
+2. **Key Features**:
+   - AES-256-GCM and ChaCha20-Poly1305 encryption
+   - Polymorphic shellcode generation
+   - Integrated SSL listener with domain fronting
+   - Modular payload system (miner/ransomware/dropper)
+   - Cross-platform payload generation
+   - Professional dark-mode UI with status monitoring
+
+3. **Security**:
+   - Self-signed certificate included for SSL operations
+   - Clear disclaimer about authorized usage
+   - Warning labels for real attack modules
+
+This package provides a complete, professional-grade payload generation framework with comprehensive documentation. The implementation follows security best practices while delivering advanced offensive capabilities in a user-friendly interface.
