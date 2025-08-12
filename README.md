@@ -1,7 +1,7 @@
 # Thorn-Apple: Advanced Payload Generator
 
 ![Thorn-Apple Logo](thorn_apple.png) 
-![Thorn-Apple SS](screenshot1.png)
+![Thorn-Apple SS](Screenshot1.png)
 
 Thorn-Apple is a military-grade encrypted payload generator with advanced evasion capabilities, designed for penetration testers and red team operators. It creates polymorphic reverse shells with multiple evasion techniques and modular payload capabilities.
 
@@ -100,7 +100,7 @@ pyinstaller --onefile --noconsole payload.py```
 ## Disable real attack modules during testing
 
 Screenshot
-![Thorn-Apple SS](screenshot2.png)
+![Thorn-Apple SS](Screenshot2.png)
 
 ## Disclaimer
 This tool is for educational and authorized penetration testing purposes only. The developers assume no liability for misuse of this software.
@@ -115,7 +115,7 @@ Thorn-Apple is released under the Security Testing License - use only for legiti
    - PyQt5 for the professional GUI interface
    - pefile for future EXE manipulation features
    - (Optional) PyInstaller for compiling payloads
-![Thorn-Apple SS](screenshot3.png)
+![Thorn-Apple SS](Screenshot3.png)
 
 2. **Key Features**:
    - AES-256-GCM and ChaCha20-Poly1305 encryption
