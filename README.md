@@ -27,16 +27,20 @@ Thorn-Apple is a military-grade encrypted payload generator with advanced evasio
    ```bash
    git clone https://github.com/yourrepo/thorn-apple.git
    cd thorn-apple
-Install dependencies:
 
-bash
-pip install -r requirements.txt
-Run the application:
+## Install dependencies:
 
-bash
-python thorn-apple.py
-Usage Guide
-Basic Payload Generation
+bash```
+pip install -r requirements.txt```
+
+## Run the application:
+
+bash```
+python thorn-apple.py```
+
+## Usage Guide
+
+### Basic Payload Generation
 Configure connection settings (LHOST/LPORT)
 
 Select architecture (x86/x64) and target OS
@@ -49,7 +53,8 @@ Enable evasion techniques as needed
 
 Click "Generate Advanced Payload"
 
-Advanced Modules
+## Advanced Modules
+
 File Dropper: Embed and execute additional binaries
 
 Domain Fronting: Evade network restrictions using CDN domains
@@ -58,7 +63,7 @@ Cryptominer: Monero CPU miner with stealth options
 
 Ransomware: File encryption module with exclusion lists
 
-Listener Controls
+## Listener Controls
 Set listener port (default: 4444)
 
 Enable SSL/TLS for encrypted communications
@@ -67,7 +72,7 @@ Start listener and wait for connections
 
 Execute commands through the integrated terminal
 
-Configuration Options
+## Configuration Options
 Section	Options
 Connection	LHOST, LPORT, SSL/TLS, Sleep Time
 Payload Settings	Architecture, Platform, Format, Encryption Method
