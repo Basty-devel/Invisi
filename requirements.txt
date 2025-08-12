@@ -1,11 +1,13 @@
 # Thorn-Apple Requirements
+# Core dependencies
 PyQt5==5.15.9
 pycryptodome==3.20.0
 pefile==2023.2.7
-pyinstaller==6.2.0
-binascii==1.0.0
-pywin32==306
-pyaudio==0.2.14
-opencv-python==4.9.0.80
-pynput==1.7.6
-mss==9.0.1
+
+# Optional dependencies (for advanced features)
+pyinstaller==6.2.0          # For EXE payload compilation
+pywin32==306                # Windows-specific features
+pyaudio==0.2.14             # Audio capture module
+opencv-python==4.9.0.80     # Screen capture/visual modules
+pynput==1.7.6               # Keylogging functionality
+mss==9.0.1                  # Enhanced screenshot capabilities
