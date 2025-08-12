@@ -39,6 +39,8 @@ pip install -r requirements.txt```
 bash```
 python thorn-apple.py```
 
+Windows```python.exe thorn-apple.py```
+
 ## Usage Guide
 
 ### Basic Payload Generation
